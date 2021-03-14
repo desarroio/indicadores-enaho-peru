@@ -7,10 +7,10 @@ enaho01_2019_100 <- read_dta("data/raw/enaho01-2019-100.dta")
 enaho01_2019_100 <- enaho01_2019_100 %>%
   filter( result == 1 | result == 2) %>% #observaciones completas o incompletas
   select( aÑo:panel, p103, p110, p111a, p1121, p1136, p1137, factor07) %>%   #selccionar variables
-  mutate( dpto = str_sub( ubigeo, 1, 2),   #Creando variable de dpto, distrito y total
-          dist = ubigeo,
+  mutate( dpto = as_factor(str_sub( ubigeo, 1, 2)),   #Creando variable de dpto, distrito y total
+          dist = as_factor(ubigeo),
           total = "Total",
-          dominio_enaho = as.character(dominio),
+          dominio_enaho = as_factor( dominio),
           piso_tierra      = case_when( is.na( p103) ~ NA_integer_,
                                         p103 %in% c( 6, 7) ~ 1L,
                                         TRUE ~ 0L), #creando indicadores
@@ -35,11 +35,11 @@ enaho_design <- svydesign( data = enaho01_2019_100,
                            strata = ~dpto)
 
 ### calculo de indicadores
-svymean( ~piso_tierra + agua_red_publica + desague_red_publica + electricidad + cocina_lena, enaho_design, na.rm = TRUE)
-cv(svymean( ~piso_tierra + agua_red_publica + desague_red_publica + electricidad + cocina_lena, enaho_design, na.rm = TRUE))
+t_mean <- as.data.frame( svymean( ~piso_tierra + agua_red_publica + desague_red_publica + electricidad + cocina_lena, enaho_design, na.rm = TRUE))
+t_cv <- cv(svymean( ~piso_tierra + agua_red_publica + desague_red_publica + electricidad + cocina_lena, enaho_design, na.rm = TRUE))
 
 
-svyby( formula = ~piso_tierra,
+svyby( formula = ~piso_tierra + agua_red_publica + desague_red_publica + electricidad + cocina_lena,
        by = ~total,
        design = enaho_design,
        FUN = svymean, na.rm = TRUE,
