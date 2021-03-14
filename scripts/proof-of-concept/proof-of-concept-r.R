@@ -20,7 +20,7 @@ enaho01_2019_100 <- enaho01_2019_100 %>%
           desague_red_publica = case_when( is.na( p111a) ~ NA_integer_,
                                         p111a %in% c( 1, 2) ~ 1L,
                                         TRUE ~ 0L),
-          electricidad = p1121,
+          electricidad = as.integer(p1121),
           cocina_lena =  case_when( is.na( p1136) | is.na( p1137) ~ NA_integer_,
                                     p1136 == 1 | p1137 == 1 ~ 1L,
                                    TRUE ~ 0L),
@@ -35,7 +35,9 @@ enaho_design <- svydesign( data = enaho01_2019_100,
                            strata = ~dpto)
 
 ### calculo de indicadores
-svymean( ~piso_tierra + agua_red_publica + desague_red_publica +desague_red_publica +cocina_lena, enaho_design, na.rm=TRUE)
+svymean( ~piso_tierra + agua_red_publica + desague_red_publica + electricidad + cocina_lena, enaho_design, na.rm = TRUE)
+cv(svymean( ~piso_tierra + agua_red_publica + desague_red_publica + electricidad + cocina_lena, enaho_design, na.rm = TRUE))
+
 
 svyby( formula = ~piso_tierra,
        by = ~total,
