@@ -1,6 +1,7 @@
 library(tidyverse)
 library(haven)
 library(survey)
+library(readr)
 
 enaho01_2019_100 <- read_dta("data/raw/enaho01-2019-100.dta")
 
@@ -38,59 +39,34 @@ enaho_design <- svydesign( data = enaho01_2019_100,
 t_mean <- as.data.frame( svymean( ~piso_tierra + agua_red_publica + desague_red_publica + electricidad + cocina_lena, enaho_design, na.rm = TRUE))
 t_cv <- cv(svymean( ~piso_tierra + agua_red_publica + desague_red_publica + electricidad + cocina_lena, enaho_design, na.rm = TRUE))
 
+lista <- list( ~total, ~dominio_enaho, ~dpto, ~dist)
 
-svyby( formula = ~piso_tierra + agua_red_publica + desague_red_publica + electricidad + cocina_lena,
-       by = ~total,
-       design = enaho_design,
-       FUN = svymean, na.rm = TRUE,
-       row.names  = FALSE)
-
-enaho01_2019_100 %>% 
-  count( total, piso_tierra) 
-
-b <- enaho01_2019_100 %>%
-  gather(  key = "indicador",
-           value = "count",
-           piso_tierra:cocina_lena)
-
-b %>% count( total, indicador, wt = factor07)
-
-  
-#  *Lista de niveles a calcular
-#local niveles total dominio_enaho dpto dist
-
-#*Lista de indicadores a calcular
-#local indicadores piso_tierra agua_red_publica desague_red_publica electricidad cocina_lena
-
-#Activando svyset con pesos por hogar
-svyset conglome [pweight=factor07], strata(estrato) vce(linearized) singleunit(centered)
-
-*Configuracion para guardar resultados
-tempfile resultados
-tempname postfile
-postfile `postfile' str20 nivel str20 grupo str20 indicador resultado cv using "`resultados'"
-
-*Indicadores
-foreach nivel of local niveles {
-	
-	levelsof `nivel', local(grupos)
-foreach grupo of local grupos {
-  
-  svy:mean `indicadores' if `nivel' == "`grupo'"
-		*estat cv
-		foreach indicador of local indicadores {
-			post `postfile' ("`nivel'") ("`grupo'") ("`indicador'") (_b[`indicador']) (_se[`indicador'] / _b[`indicador'])
-
-		}
-	}
+calc <- function( grupo) {
+  a <- svyby( formula = ~piso_tierra + agua_red_publica + desague_red_publica + electricidad + cocina_lena,
+         by = grupo,
+         vartype = "cv",
+         design = enaho_design,
+         FUN = svymean, na.rm = TRUE,
+         row.names  = FALSE)
+  a1 <- a %>% select( 1, !starts_with("cv."))
+  a2 <- a %>% select( 1, starts_with("cv."))
+  b1 <- pivot_longer( a1, !1, names_to = "indicador", values_to = "resultado")
+  b2 <- pivot_longer( a2, !1, names_to = "indicador", values_to = "resultado")
+  b <- bind_rows( b1, b2)
+  c <- b %>% mutate( tipo = case_when( str_extract(indicador, "cv.") == "cv." ~ "cv",
+                                       TRUE ~"resultado"),
+                     indicador = str_remove( indicador, "cv."))
+  d <- pivot_wider( c, names_from = tipo, values_from = resultado)
 }
 
-*************
-** Exportando
-*************
+lista2 <- lapply( lista, calc)
+lista3 <- lapply( lista2, rename, grupo = 1 )
 
-postclose `postfile'
+r_results <- bind_rows(lista3)
 
-use "`resultados'", clear
-compress _all
-outsheet using "outputs/proof-of-concept/stata-results.csv", comma replace
+stata_results <- read_csv("outputs/proof-of-concept/stata-results.csv")
+
+identical(stata_results$resultado, r_results$resultado)
+
+write_csv(r_results, "/outputs/r_results.R")
+
