@@ -4,6 +4,7 @@ library(survey)
 library(readr)
 
 enaho01_2019_100 <- read_dta("data/raw/enaho01-2019-100.dta")
+stata_results <- read_csv("outputs/proof-of-concept/stata-results.csv")
 
 enaho01_2019_100 <- enaho01_2019_100 %>%
   filter( result == 1 | result == 2) %>% #observaciones completas o incompletas
@@ -35,12 +36,7 @@ enaho_design <- svydesign( data = enaho01_2019_100,
                            id = ~conglome+cod_viv,
                            strata = ~dpto)
 
-### calculo de indicadores
-t_mean <- as.data.frame( svymean( ~piso_tierra + agua_red_publica + desague_red_publica + electricidad + cocina_lena, enaho_design, na.rm = TRUE))
-t_cv <- cv(svymean( ~piso_tierra + agua_red_publica + desague_red_publica + electricidad + cocina_lena, enaho_design, na.rm = TRUE))
-
-lista <- list( ~total, ~dominio_enaho, ~dpto, ~dist)
-
+#función para calcular survey indicators
 calc <- function( grupo) {
   a <- svyby( formula = ~piso_tierra + agua_red_publica + desague_red_publica + electricidad + cocina_lena,
          by = grupo,
@@ -59,14 +55,19 @@ calc <- function( grupo) {
   d <- pivot_wider( c, names_from = tipo, values_from = resultado)
 }
 
+#calculo de indicadores
+lista <- list( ~total, ~dominio_enaho, ~dpto, ~dist)
 lista2 <- lapply( lista, calc)
 lista3 <- lapply( lista2, rename, grupo = 1 )
 
 r_results <- bind_rows(lista3)
 
-stata_results <- read_csv("outputs/proof-of-concept/stata-results.csv")
+write_csv(r_results, "outputs/proof-of-concept/r_results.csv")
 
-identical(stata_results$resultado, r_results$resultado)
+comparacion <- 
+  left_join( stata_results, r_results, by = c("grupo", "indicador"), suffix = c( ".stata", ".r")) %>%
+  mutate( dif_res = resultado.stata-resultado.r,
+                        dif_cv= cv.stata-cv.r)
 
-write_csv(r_results, "/outputs/r_results.R")
-
+#Reporte de comparación
+summary( comparacion %>% select(dif_res, dif_cv))
