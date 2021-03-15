@@ -14,7 +14,7 @@ enaho01_2019_100 <- enaho01_2019_100 %>%
           total = "Total",
           dominio_enaho = as_factor( dominio),
           #creando indicadores
-          piso_tierra      = case_when( is.na( p103) ~ NA_integer_, p103 %in% c( 6, 7) ~ 1L, TRUE ~ 0L), 
+          piso_tierra      = case_when( is.na( p103) ~ NA_integer_, p103 %in% c( 6, 7) ~ 1L, TRUE ~ 0L), #case_when permite deal with NAs
           agua_red_publica = case_when( is.na( p110) ~ NA_integer_, p110 %in% c( 1, 2) ~ 1L, TRUE ~ 0L),
           desague_red_publica = case_when( is.na( p111a) ~ NA_integer_, p111a %in% c( 1, 2) ~ 1L, TRUE ~ 0L),
           electricidad = as.integer(p1121),
@@ -47,10 +47,8 @@ calc <- function( grupo) {
 
 #calculo de indicadores aplicando función
 lista <- list( ~total, ~dominio_enaho, ~dpto, ~dist) #lista de niveles
-lista2 <- lapply( lista, calc)
-lista3 <- lapply( lista2, rename, grupo = 1 )
 
-r_results <- bind_rows(lista3)
+r_results <- lapply( lista, calc) %>%  lapply( rename, grupo = 1 ) %>%  bind_rows() #calcular indicadores, uniformizar nombres de vars y unir dataframe
 
 write_csv(r_results, "outputs/proof-of-concept/r_results.csv") #guardar .csv
 
