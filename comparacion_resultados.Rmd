@@ -2,7 +2,9 @@
 title: "Comparación de resultados"
 author: "Desarroio"
 date: "3/23/2021"
-output: html_document
+output:
+  html_document:
+    df_print: paged
 ---
 
 ```{r setup, include=FALSE}
