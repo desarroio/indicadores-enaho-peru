@@ -80,7 +80,7 @@ lista <- list( ~total, ~dominio_enaho, ~dpto, ~dist)
 r_results <- lapply( lista, calc) %>%  lapply( rename, grupo = 1 ) %>%  bind_rows() 
 ```
 
-## Comparación de resultados
+### Comparación de resultados
 Se crea una tabla para comparar los resultados obtenidos con STATA y R.
 ```{r compara_tablas}
 comparacion <- 
@@ -90,7 +90,7 @@ comparacion <-
   select( nivel, grupo, indicador, res.stata, res.r, dif_res, cv.stata, cv.r, dif_cv)
 comparacion
 ```
-Se presenta un resumen de los estadísticos calculados:
+Se presenta un resumen de las diferencias entre resultados y coeficientes calculados con ambos métodos:
 ```{r resumen}
 summary( comparacion %>% select(dif_res, dif_cv))
 ```
