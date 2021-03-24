@@ -86,8 +86,9 @@ Se crea una tabla para comparar los resultados obtenidos con STATA y R:
 ```{r compara_tablas}
 comparacion <- 
   left_join( stata_results, r_results, by = c("grupo", "indicador"), suffix = c( ".stata", ".r")) %>%
-  mutate( dif_res = resultado.stata-resultado.r, dif_cv= cv.stata-cv.r)
-head(comparacion)
+  mutate( dif_res = resultado.stata-resultado.r, dif_cv= cv.stata-cv.r) %>% 
+  rename( res.stata = resultado.stata, res.r = resultado.r)
+head(comparacion, n = 30L)
 ```
 Se presenta un resumen de los estadísticos calculados:
 ```{r resumen}
