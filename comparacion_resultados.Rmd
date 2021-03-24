@@ -60,20 +60,17 @@ La función todavía es poco elegante, pero funciona. Ésta calcula el survey me
 ```{r funcion, echo=TRUE}
 calc <- function( grupo) {
   a <- svyby( formula = ~piso_tierra + agua_red_publica + desague_red_publica + electricidad + cocina_lena,
-         by = grupo,
-         vartype = "cv",
-         design = enaho_design,
-         FUN = svymean, na.rm = TRUE,
-         row.names  = FALSE)
-  a1 <- a %>% select( 1, !starts_with("cv."))
-  a2 <- a %>% select( 1, starts_with("cv."))
-  b1 <- pivot_longer( a1, !1, names_to = "indicador", values_to = "resultado")
-  b2 <- pivot_longer( a2, !1, names_to = "indicador", values_to = "resultado")
-  b <- bind_rows( b1, b2)
-  c <- b %>% mutate( tipo = case_when( str_extract(indicador, "cv.") == "cv." ~ "cv",
-                                       TRUE ~"resultado"),
-                     indicador = str_remove( indicador, "cv."))
-  d <- pivot_wider( c, names_from = tipo, values_from = resultado)
+              by = grupo,
+              vartype = "cv",
+              design = enaho_design,
+              FUN = svymean, na.rm = TRUE,
+              row.names  = FALSE)
+  a1 <- a %>% select( 1, !starts_with("cv.")) %>% pivot_longer( !1, names_to = "indicador", values_to = "resultado")
+  a2 <- a %>% select( 1, starts_with("cv.")) %>% pivot_longer(  !1, names_to = "indicador", values_to = "resultado")
+  b <- bind_rows( a1, a2) %>% 
+    mutate( tipo = case_when( str_extract(indicador, "cv.") == "cv." ~ "cv", TRUE ~"resultado"),
+                                      indicador = str_remove( indicador, "cv.")) %>% 
+    pivot_wider( names_from = tipo, values_from = resultado)
 }
 ```
 
