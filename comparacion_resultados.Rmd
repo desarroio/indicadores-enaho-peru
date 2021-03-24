@@ -84,12 +84,13 @@ r_results <- lapply( lista, calc) %>%  lapply( rename, grupo = 1 ) %>%  bind_row
 ```
 
 ## Comparación de resultados
-Se crea una tabla para comparar los resultados obtenidos con STATA y R:
+Se crea una tabla para comparar los resultados obtenidos con STATA y R.
 ```{r compara_tablas}
 comparacion <- 
   left_join( stata_results, r_results, by = c("grupo", "indicador"), suffix = c( ".stata", ".r")) %>%
   mutate( dif_res = resultado.stata-resultado.r, dif_cv= cv.stata-cv.r) %>% 
-  rename( res.stata = resultado.stata, res.r = resultado.r)
+  rename( res.stata = resultado.stata, res.r = resultado.r) %>% 
+  select( nivel, grupo, indicador, res.stata, res.r, dif_res, cv.stata, cv.r, dif_cv)
 comparacion
 ```
 Se presenta un resumen de los estadísticos calculados:
