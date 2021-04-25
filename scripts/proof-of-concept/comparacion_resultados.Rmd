@@ -1,0 +1,96 @@
+---
+title: "Comparación de resultados"
+author: "Desarroio"
+date: "3/23/2021"
+output:
+  html_document:
+    df_print: paged
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE)
+library(tidyverse)
+library(haven)
+library(survey)
+library(readr)
+```
+
+## Comparación de resultados Stata vs. R
+
+Este archivo presenta los resultados de calcular indicadores para distintos niveles de agregación junto con sus coeficientes de variación. Los resultados de Stata se cargan directamente del archivo resultante ubicado en los outputs del proyecto, los resultados de R se producen en este mismo markdown.
+
+```{r cargar_data, include=FALSE}
+enaho01_2019_100 <- read_dta("data/raw/enaho01-2019-100.dta") #cargar data
+stata_results <- read_csv("outputs/proof-of-concept/stata-results.csv") #cargar resultados en stata
+```
+
+### Procesamiento ENAHO
+
+Se filtran por resultado de la encuesta, se seleccionan las variables relevantes y se crean las variables de departamento, distrito y la categoría "total". Además se crean las dummies de los indicadores seleccionados (para esto se usa case_when, que permite procesar bien los NAs), y se construye un id de vivienda.
+
+```{r procesa_enaho, echo=FALSE}
+enaho01_2019_100 <- enaho01_2019_100 %>%
+  filter( result == 1 | result == 2) %>% 
+  select( aÑo:panel, p103, p110, p111a, p1121, p1136, p1137, factor07) %>%   
+  mutate( dpto = as_factor(str_sub( ubigeo, 1, 2)),  
+          dist = as_factor(ubigeo),
+          total = "Total",
+          dominio_enaho = as_factor( dominio),
+          #creando indicadores
+          piso_tierra      = case_when( is.na( p103) ~ NA_integer_, p103 %in% c( 6, 7) ~ 1L, TRUE ~ 0L), 
+          agua_red_publica = case_when( is.na( p110) ~ NA_integer_, p110 %in% c( 1, 2) ~ 1L, TRUE ~ 0L),
+          desague_red_publica = case_when( is.na( p111a) ~ NA_integer_, p111a %in% c( 1, 2) ~ 1L, TRUE ~ 0L),
+          electricidad = as.integer(p1121),
+          cocina_lena =  case_when( is.na( p1136) | is.na( p1137) ~ NA_integer_, p1136 == 1 | p1137 == 1 ~ 1L, TRUE ~ 0L),
+          cod_viv = paste0( conglome, vivienda, hogar)
+          )
+glimpse(enaho01_2019_100)
+```
+### Diseño muestral
+Se establece el diseño de la muestra para hacer el análisis. Se asume que los conglomerados ya incluyen la primera etapa de la selección y por lo tanto se considera como UPM a pesar de que en realidad es la unidad secundaria según la [ficha técnica](http://iinei.inei.gob.pe/iinei/srienaho/Descarga/FichaTecnica/641-Ficha.pdf). Aplicar el survey design toma tiempo, por eso se ha desactivado ese código, y en su lugar este chunk carga el objeto R previamente creado. 
+```{r survey_design, echo=TRUE}
+#enaho_design <- svydesign( data = enaho01_2019_100, weights = ~factor07, id = ~conglome+cod_viv, strata = ~dpto)
+#save( enaho_design, file = "outputs/enaho_design_r.RData")
+load( "outputs/enaho_design_r.RData")
+```
+
+### Construcción de indicadores
+Se crea la función calc() para calcular los survey indicators en los 4 niveles que nos interesan.
+La función todavía es poco elegante, pero funciona. Ésta calcula el survey mean (FUN) de las variables seleccionadas y reporta el coeficiente de variación (vartype), luego reordena los resultados para tener tidy data usando pivot_longer.
+```{r funcion, echo=TRUE}
+calc <- function( grupo) {
+  a <- svyby( formula = ~piso_tierra + agua_red_publica + desague_red_publica + electricidad + cocina_lena,
+              by = grupo,
+              vartype = "cv",
+              design = enaho_design,
+              FUN = svymean, na.rm = TRUE,
+              row.names  = FALSE)
+  a1 <- a %>% select( 1, !starts_with("cv.")) %>% pivot_longer( !1, names_to = "indicador", values_to = "resultado")
+  a2 <- a %>% select( 1, starts_with("cv.")) %>% pivot_longer(  !1, names_to = "indicador", values_to = "resultado")
+  b <- bind_rows( a1, a2) %>% 
+    mutate( tipo = case_when( str_extract(indicador, "cv.") == "cv." ~ "cv", TRUE ~"resultado"),
+                                      indicador = str_remove( indicador, "cv.")) %>% 
+    pivot_wider( names_from = tipo, values_from = resultado)
+}
+```
+
+Se aplica la función para los 4 niveles indicados en lista, usando lapply (que sirve para aplicar la misma función a los elementos de una lista).
+```{r aplica_func, echo=TRUE}
+lista <- list( ~total, ~dominio_enaho, ~dpto, ~dist) 
+r_results <- lapply( lista, calc) %>%  lapply( rename, grupo = 1 ) %>%  bind_rows() 
+```
+
+### Comparación de resultados
+Se crea una tabla para comparar los resultados obtenidos con STATA y R.
+```{r compara_tablas}
+comparacion <- 
+  left_join( stata_results, r_results, by = c("grupo", "indicador"), suffix = c( ".stata", ".r")) %>%
+  mutate( dif_res = resultado.stata-resultado.r, dif_cv= cv.stata-cv.r) %>% 
+  rename( res.stata = resultado.stata, res.r = resultado.r) %>% 
+  select( nivel, grupo, indicador, res.stata, res.r, dif_res, cv.stata, cv.r, dif_cv)
+comparacion
+```
+Se presenta un resumen de las diferencias entre resultados y coeficientes calculados con ambos métodos:
+```{r resumen}
+summary( comparacion %>% select(dif_res, dif_cv))
+```
