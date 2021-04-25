@@ -14,7 +14,7 @@ enaho01_2019_100 <- enaho01_2019_100 %>%
           total = "Total",
           dominio_enaho = as_factor( dominio),
           #creando indicadores
-          piso_tierra      = case_when( is.na( p103) ~ NA_integer_, p103 %in% c( 6, 7) ~ 1L, TRUE ~ 0L), #case_when permite deal with NAs
+          piso_tierra      = case_when( is.na( p103) ~ NA_integer_, p103 %in% c( 6, 7) ~ 1L, TRUE ~ 0L), #case_when allows to deal with NAs
           agua_red_publica = case_when( is.na( p110) ~ NA_integer_, p110 %in% c( 1, 2) ~ 1L, TRUE ~ 0L),
           desague_red_publica = case_when( is.na( p111a) ~ NA_integer_, p111a %in% c( 1, 2) ~ 1L, TRUE ~ 0L),
           electricidad = as.integer(p1121),
